@@ -12,6 +12,12 @@
 # TODO:
 #	- Support GNU flags for appropriate commands.
 #	- Autodetect binary paths.
+#	- Support mount points with multiple slashes.
+#
+# Further reading
+# http://forums.freebsd.org/showthread.php?t=4901
+# http://forums.freebsd.org/showthread.php?t=185
+# http://www.rgrjr.com/linux/backup.html
 #
 ### Matt Stofko <matt@mjslabs.com>
 
@@ -151,10 +157,3 @@ echo >> $DUMP_PATH/$LABEL_FILE
 
 echo Disk Layout: >> $DUMP_PATH/$LABEL_FILE
 $CATBIN $FSTAB_FILE >> $DUMP_PATH/$LABEL_FILE
-
-# Further reading
-# http://forums.freebsd.org/showthread.php?t=4901
-# http://forums.freebsd.org/showthread.php?t=185
-# http://www.rgrjr.com/linux/backup.html
-
-## check mount points with multiple slashes.
