@@ -17,10 +17,11 @@
 
 # Your fstab file, usually in /etc.
 # Any device in here with a dump flag of '1' will be dumped using it's mount point without slashes as the file name.
+# e.g. /home would be dumped to home.dump.bz2
 FSTAB_FILE=/etc/fstab
 
 # How many weeks of backups to keep.
-# (will be 0 through $TOTAL_WEEKS-1)
+# (dir names will be 0 through $TOTAL_WEEKS-1)
 TOTAL_WEEKS=4
 
 # Where will our dumps be saved to?
@@ -65,7 +66,7 @@ WEEK=$1
 # Or if they didn't specify, figure it out by finding the last file made in our dir tree.
 if [ "$WEEK" == "" ]
  then
-	WEEK=`$FINDBIN $BACKUP_DEST -type f | $XARGSBIN $STATBIN -f '%m:%N' | $SORTBIN -nr | $CUTBIN -d: -f2- | $HEADBIN -n1 | $SEDBIN 's/.*week\([0-9]\).*/\1/'`
+	WEEK=`$FINDBIN $BACKUP_DEST -type f | $XARGSBIN $STATBIN -f '%m:%N' | $SORTBIN -nr | $CUTBIN -d : -f2- | $HEADBIN -n1 | $SEDBIN 's/.*week\([0-9]\).*/\1/'`
 fi
 
 # If the user specified a dump level, we'll use it for $NEXTDUMP.
@@ -120,7 +121,7 @@ for CURDEVLABEL in $DEVICES
 	$SSLBIN md5 $DUMP_PATH/$CUR_FILE$DUMP_FILE_SUFFIX > $DUMP_PATH/$CUR_FILE$DUMP_MD5_SUFFIX
 done
 
-# Copy the kernel config we specified up top.
+# Copy the kernel config we specified up top and md5 it.
 $CPBIN $KERNEL_CONFIG_DIR/$KERNEL_CONFIG_NAME $DUMP_PATH
 $SSLBIN md5 $DUMP_PATH/$KERNEL_CONFIG_NAME > $DUMP_PATH/$KERNEL_CONFIG_NAME.md5sum
 
