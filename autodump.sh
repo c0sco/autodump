@@ -34,6 +34,11 @@ TOTAL_WEEKS=4
 # dirs for each week and dump level will be made here.
 BACKUP_DEST=/nfs/system_backup/dump
 
+# The device that has your boot blocks on it, and the file it will be saved to.
+# Can be left blank if you don't want to do this.
+MBR_DEV=/dev/da0
+MBR_FILE=mbr.img
+
 # Copy our kernel config as well. This allows you to set the nodump system flag on /usr/src.
 KERNEL_CONFIG_DIR=/usr/src/sys/amd64/conf
 KERNEL_CONFIG_NAME=DAEMON
@@ -63,6 +68,7 @@ UNAMEBIN=/usr/bin/uname
 DFBIN=/bin/df
 DATEBIN=/bin/date
 LSBIN=/bin/ls
+DDBIN=/bin/dd
 
 ########################################################################################
 ########################################################################################
@@ -134,6 +140,12 @@ for CURDEVLABEL in $DEVICES
 	# Calculate the md5.
 	$SSLBIN md5 $DUMP_PATH/$CUR_FILE$DUMP_FILE_SUFFIX > $DUMP_PATH/$CUR_FILE$DUMP_MD5_SUFFIX
 done
+
+# Back up the boot blocks if specified.
+if [ "$MBR_DEV" != "" ]
+ then
+ 	$DDBIN if=$MBR_DEV of=$DUMP_PATH/$MBR_FILE bs=512 count=1
+fi
 
 # Copy the kernel config we specified up top and md5 it.
 $CPBIN $KERNEL_CONFIG_DIR/$KERNEL_CONFIG_NAME $DUMP_PATH
