@@ -32,6 +32,9 @@ BACKUP_DEST=/nfs/system_backup/dump
 KERNEL_CONFIG_DIR=/usr/src/sys/amd64/conf
 KERNEL_CONFIG_NAME=DAEMON
 
+# File name of where the current system info will be saved after a backup.
+LABEL_FILE=label.txt
+
 # Path to the binaries we need.
 DUMPBIN=/sbin/dump
 BZ2BIN=/usr/bin/bzip2
@@ -49,6 +52,11 @@ MKDIRBIN=/bin/mkdir
 FINDBIN=/usr/bin/find
 STATBIN=/usr/bin/stat
 SORTBIN=/usr/bin/sort
+HOSTBIN=/bin/hostname
+UNAMEBIN=/usr/bin/uname
+DFBIN=/bin/df
+DATEBIN=/bin/date
+LSBIN=/bin/ls
 
 ########################################################################################
 ########################################################################################
@@ -124,6 +132,25 @@ done
 # Copy the kernel config we specified up top and md5 it.
 $CPBIN $KERNEL_CONFIG_DIR/$KERNEL_CONFIG_NAME $DUMP_PATH
 $SSLBIN md5 $DUMP_PATH/$KERNEL_CONFIG_NAME > $DUMP_PATH/$KERNEL_CONFIG_NAME.md5sum
+
+# Gather system info to label our dumps
+DUMP_LISTING=`$LSBIN -loh $DUMP_PATH`
+echo Dump Date: `$DATEBIN` > $DUMP_PATH/$LABEL_FILE
+echo Dump Level: $NEXTDUMP >> $DUMP_PATH/$LABEL_FILE
+echo Dump Files: >> $DUMP_PATH/$LABEL_FILE
+echo "$DUMP_LISTING" >> $DUMP_PATH/$LABEL_FILE
+echo >> $DUMP_PATH/$LABEL_FILE
+
+echo Hostname: `$HOSTBIN` >> $DUMP_PATH/$LABEL_FILE
+echo Version: `$UNAMEBIN -a` >> $DUMP_PATH/$LABEL_FILE
+echo >> $DUMP_PATH/$LABEL_FILE
+
+echo Disk Usage: >> $DUMP_PATH/$LABEL_FILE
+$DFBIN -h >> $DUMP_PATH/$LABEL_FILE
+echo >> $DUMP_PATH/$LABEL_FILE
+
+echo Disk Layout: >> $DUMP_PATH/$LABEL_FILE
+$CATBIN $FSTAB_FILE >> $DUMP_PATH/$LABEL_FILE
 
 # Further reading
 # http://forums.freebsd.org/showthread.php?t=4901
