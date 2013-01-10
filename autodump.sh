@@ -99,6 +99,13 @@ if [ "$NEXTDUMP" == "" ]
 	LASTDUMP=`$DUMPBIN -W | $GREPBIN -v "^Last" | $TAILBIN -n 1 | $SEDBIN 's/.*Level \([0-9]\).*/\1/'`
 	# Add 1 to the last level, that is the level we will be using this time.
 	NEXTDUMP=$(($LASTDUMP+1))
+
+	# In case we've never done a dump before, start at 0/0
+	if [ "$LASTDUMP" == "" ]
+	 then
+	 	NEXTDUMP=0
+	 	SET=0
+	fi
 fi
 
 # Last level was 9, meaning we should start over at 0 on a new set now.
