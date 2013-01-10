@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 # autodump.sh
-## Usage: autodump.sh [week] [dump level]
+## Usage: autodump.sh [set #] [dump level]
 #
 ## Dump devices with a dump flag of 1 in /etc/fstab to specified directory along with their md5sum.
-## Automatically manage dump levels (if 0 was done last, do 1 this time, and so on) and weekly rotation.
+## Automatically manage dump levels (if 0 was done last, do 1 this time, and so on) and set rotations.
 #
 ## Written and used specifically on FreeBSD, not guaranteed to work on other systems.
 ## For system requirements see the *BIN variables below. Also needs a shell that supports {..} ranges (like bash).
@@ -26,12 +26,12 @@
 # e.g. /home would be dumped to home.dump.bz2
 FSTAB_FILE=/etc/fstab
 
-# How many weeks of backups to keep.
-# (dir names will be 0 through $TOTAL_WEEKS-1)
-TOTAL_WEEKS=4
+# How many sets of backups to keep.
+# (dir names will be 0 through $TOTAL_SETS-1)
+TOTAL_SETS=4
 
 # Where will our dumps be saved to?
-# dirs for each week and dump level will be made here.
+# dirs for each set and dump level will be made here.
 BACKUP_DEST=/nfs/system_backup/dump
 
 # The device that has your boot blocks on it, and the file it will be saved to.
@@ -80,13 +80,13 @@ DDBIN=/bin/dd
 # dev:label, e.g. /dev/da0s1a:root. This will dump /dev/da0s1a to root<dump level>.dump.bz2.
 DEVICES=`$CATBIN $FSTAB_FILE | $AWKBIN '{print $1 ":" $2 ":" $5}' | $GREPBIN -v ":0" | $GREPBIN -v "^#" | $CUTBIN -d: -f1-2 | $SEDBIN -e 's/\/$/root/' -e 's/:\//:/' | $XARGSBIN echo`
 
-# The week dir it's going to go to if the user specified.
-WEEK=$1
+# The set dir it's going to go to if the user specified.
+SET=$1
 
 # Or if they didn't specify, figure it out by finding the last file made in our dir tree.
-if [ "$WEEK" == "" ]
+if [ "$SET" == "" ]
  then
-	WEEK=`$FINDBIN $BACKUP_DEST -type f | $XARGSBIN $STATBIN -f '%m:%N' | $SORTBIN -nr | $CUTBIN -d : -f2- | $HEADBIN -n1 | $SEDBIN 's/.*week\([0-9]\).*/\1/'`
+	SET=`$FINDBIN $BACKUP_DEST -type f | $XARGSBIN $STATBIN -f '%m:%N' | $SORTBIN -nr | $CUTBIN -d : -f2- | $HEADBIN -n1 | $SEDBIN 's/.*set\([0-9]\).*/\1/'`
 fi
 
 # If the user specified a dump level, we'll use it for $NEXTDUMP.
@@ -96,33 +96,33 @@ NEXTDUMP=$2
 if [ "$NEXTDUMP" == "" ]
  then
 	# Figure out the last dump level.
-	LASTDUMP=`$DUMPBIN -W | $TAILBIN -n 1 | $SEDBIN 's/.*Level \([0-9]\).*/\1/'`
+	LASTDUMP=`$DUMPBIN -W | $GREPBIN -v "^Last" | $TAILBIN -n 1 | $SEDBIN 's/.*Level \([0-9]\).*/\1/'`
 	# Add 1 to the last level, that is the level we will be using this time.
 	NEXTDUMP=$(($LASTDUMP+1))
 fi
 
-# Last level was 9, meaning we should start over at 0 on a new week now.
+# Last level was 9, meaning we should start over at 0 on a new set now.
 # This will never trigger on a user-specified dump level unless they pass "10", but why would they do that?
 if [ "$NEXTDUMP" == "10" ] 
  then
 	NEXTDUMP=0
 
-	# Now check for weekly rotation.
-	# We will be moving to the next week since we just reset to level 0.
-	WEEK=$(($WEEK+1))
+	# Now check for set rotation.
+	# We will be moving to the next set since we just reset to level 0.
+	SET=$(($SET+1))
 
-	# Is the week we're about to use at the limit? (we actually want TOTAL_WEEKS-1 because we start at week 0)
-	if [ "$WEEK" == "$TOTAL_WEEKS" ]
+	# Is the set we're about to use at the limit? (we actually want TOTAL_SETS-1 because we start at set 0)
+	if [ "$SET" == "$TOTAL_SETS" ]
 	 then
-		WEEK=0
+		SET=0
 	fi
 fi
 
 # Make sure the dirs exist.
-for i in {0..9} ; do $MKDIRBIN -p $BACKUP_DEST/week$WEEK/$i ; done
+for i in {0..9} ; do $MKDIRBIN -p $BACKUP_DEST/set$SET/$i ; done
 
 # Build the variables needed for the commands run in the for loop we're about to enter.
-DUMP_PATH=$BACKUP_DEST/week$WEEK/$NEXTDUMP
+DUMP_PATH=$BACKUP_DEST/set$SET/$NEXTDUMP
 DUMP_FILE_SUFFIX=$NEXTDUMP.dump.bz2
 DUMP_MD5_SUFFIX=$DUMP_FILE_SUFFIX.md5sum
 DUMP_FLAGS=Lauf
