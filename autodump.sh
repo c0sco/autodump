@@ -30,6 +30,13 @@ FSTAB_FILE=/etc/fstab
 # (dir names will be 0 through $TOTAL_SETS-1)
 TOTAL_SETS=4
 
+# When to do a level 0 dump.
+# Options are:
+#  "every" - Do a level 0 at the start of every new set.
+#  "everyother" - Do a level 0 every other set.
+#  set<number> - Only do a level 0 on this set number. Number must be between 0 and $TOTAL_SETS - 1.
+DO_LVL0=set0
+
 # Where will our dumps be saved to?
 # dirs for each set and dump level will be made here.
 BACKUP_DEST=/nfs/system_backup/dump
@@ -69,6 +76,7 @@ DFBIN=/bin/df
 DATEBIN=/bin/date
 LSBIN=/bin/ls
 DDBIN=/bin/dd
+MVBIN=/bin/mv
 
 ########################################################################################
 ########################################################################################
@@ -123,6 +131,56 @@ if [ "$NEXTDUMP" == "10" ]
 	 then
 		SET=0
 	fi
+fi
+
+# Check if this set is OK to do a level 0 dump on 
+if [ "$NEXTDUMP" == "0" ]
+ then
+	# As long as the user hasn't specified a set #
+	if [ "$1" == "" ]
+	 then
+	 	# If we only want level 0s on every other set, then make sure the last set didn't have one.
+	 	if [ "$DO_LVL0" == "everyother" ]
+	 	 then
+	 	 	if [ "$SET" == "0" ]
+	 	 	 then
+	 	 	 	LASTSET=$(($TOTAL_SETS-1))
+	 	 	 else
+	 	 	 	LASTSET=$(($SET-1))
+	 	 	fi
+
+	 	 	# Now go look for a level 0 in the last set
+	 	 	LASTSET0=`$LSBIN $BACKUP_DEST/set$LASTSET/0`
+	 	 	if [ "$LASTSET0" != "" ]
+	 	 	 then
+	 	 	 	# We did a 0 last set, and we are set to "everyother", so start at 1.
+	 	 	 	NEXTDUMP=1
+	 	 	 	# And mark the level 0 dir for deletion, otherwise we can get confused about when we did a lvl0 last.
+	 	 	 	DELETE0=yes
+	 	 	fi
+	 	# Not "everyother", but a specific set number
+	 	elif [[ "$DO_LVL0" =~ ^set ]]
+	 	 then
+	 	 	# We want 0s on a specific set, and we are not currently on that set
+	 		if [ "$DO_LVL0" != "set$SET" ]
+	 		 then
+	 		 	# So start at 0
+	 			NEXTDUMP=1
+	 			# And mark level 0 for deletion just in case we switch to "everyother" at some point in the future
+	 			DELETE0=yes
+	 		fi
+	 	fi
+	fi
+fi
+
+# "trash" the level 0 in this set because of our DO_LVL0 setting.
+# This just moves it to the trash folder, since we'd rather not rm backups until we absolutely have to.
+if [ "$DELETE0" == "yes" ]
+ then
+ 	DELPATH="$BACKUP_DEST/set$SET/0/*"
+	echo "Moving $DELPATH to the trash."
+	$MKDIRBIN -p $BACKUP_DEST/trash
+	$MVBIN $DELPATH $BACKUP_DEST/trash
 fi
 
 # Make sure the dirs exist.
