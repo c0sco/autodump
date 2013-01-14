@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# autodump.sh
+# autodump.sh v1.0
 ## Usage: autodump.sh [set #] [dump level]
 #
 ## Dump devices with a dump flag of 1 in /etc/fstab to specified directory along with their md5sum.
