@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# autodump.sh v1.1
+# autodump.sh v1.2
 ## Usage: 	autodump.sh [set #] [dump level]
 ##			autodump.sh --status
 #
@@ -37,6 +37,11 @@ TOTAL_SETS=4
 #  "everyother" - Do a level 0 every other set.
 #  set<number> - Only do a level 0 on this set number. Number must be between 0 and $TOTAL_SETS - 1.
 DO_LVL0=set0
+
+# At what dump level do we care about the 'nodump' flag? If this is 0, then files and directories tagged with the 
+# 'nodump' flag (using chflags or chattr) will NEVER be backed up. If set to 1, then only on level 0 will they be
+# backed up, etc. Passed directly to dump's -h flag.
+NODUMPCARE=0
 
 # Where will our dumps be saved to?
 # dirs for each set and dump level will be made here.
@@ -220,7 +225,7 @@ for CURDEVLABEL in $DEVICES
 	CUR_FILE=`echo $CURDEVLABEL | $CUTBIN -d : -f 2`
 
 	# Do the dump.
-	$DUMPBIN -$NEXTDUMP -$DUMP_FLAGS - $CUR_DEV | $BZ2BIN > $DUMP_PATH/$CUR_FILE$DUMP_FILE_SUFFIX
+	$DUMPBIN -$NEXTDUMP -h $NODUMPCARE -$DUMP_FLAGS - $CUR_DEV | $BZ2BIN > $DUMP_PATH/$CUR_FILE$DUMP_FILE_SUFFIX
 	# Calculate the md5.
 	$SSLBIN md5 $DUMP_PATH/$CUR_FILE$DUMP_FILE_SUFFIX > $DUMP_PATH/$CUR_FILE$DUMP_MD5_SUFFIX
 done
