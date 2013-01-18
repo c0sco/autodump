@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-# autodump.sh v1.0
-## Usage: autodump.sh [set #] [dump level]
+# autodump.sh v1.1
+## Usage: 	autodump.sh [set #] [dump level]
+##			autodump.sh --status
 #
 ## Dump devices with a dump flag of 1 in /etc/fstab to specified directory along with their md5sum.
 ## Automatically manage dump levels (if 0 was done last, do 1 this time, and so on) and set rotations.
@@ -84,6 +85,24 @@ MVBIN=/bin/mv
 ########################################################################################
 ########################################################################################
 
+get_current_set ()
+{
+	echo `$FINDBIN $BACKUP_DEST -type f | $XARGSBIN $STATBIN -f '%m:%N' | $SORTBIN -nr | $CUTBIN -d : -f2- | $HEADBIN -n1 | $SEDBIN 's/.*set\([0-9]\).*/\1/'`
+}
+
+get_last_lvl ()
+{
+	echo `$DUMPBIN -W | $GREPBIN -v "^Last" | $TAILBIN -n 1 | $SEDBIN 's/.*Level \([0-9]\).*/\1/'`
+}
+
+# We just want a status. Don't actually back anything up.
+if [ "$1" == "--status" ]
+ then
+ 	echo "`$DUMPBIN -W`"
+ 	echo "Path to last dump:" $BACKUP_DEST/set`get_current_set`/`get_last_lvl`
+	exit 	
+fi
+
 # Figure out which devices we need to dump by looking for the 1 flag in /etc/fstab, then format them as
 # dev:label, e.g. /dev/da0s1a:root. This will dump /dev/da0s1a to root<dump level>.dump.bz2.
 DEVICES=`$CATBIN $FSTAB_FILE | $AWKBIN '{print $1 ":" $2 ":" $5}' | $GREPBIN -v ":0" | $GREPBIN -v "^#" | $CUTBIN -d: -f1-2 | $SEDBIN -e 's/\/$/root/' -e 's/:\//:/' | $XARGSBIN echo`
@@ -94,7 +113,7 @@ SET=$1
 # Or if they didn't specify, figure it out by finding the last file made in our dir tree.
 if [ "$SET" == "" ]
  then
-	SET=`$FINDBIN $BACKUP_DEST -type f | $XARGSBIN $STATBIN -f '%m:%N' | $SORTBIN -nr | $CUTBIN -d : -f2- | $HEADBIN -n1 | $SEDBIN 's/.*set\([0-9]\).*/\1/'`
+	SET=`get_current_set`
 fi
 
 # If the user specified a dump level, we'll use it for $NEXTDUMP.
@@ -104,7 +123,7 @@ NEXTDUMP=$2
 if [ "$NEXTDUMP" == "" ]
  then
 	# Figure out the last dump level.
-	LASTDUMP=`$DUMPBIN -W | $GREPBIN -v "^Last" | $TAILBIN -n 1 | $SEDBIN 's/.*Level \([0-9]\).*/\1/'`
+	LASTDUMP=`get_last_lvl`
 	# Add 1 to the last level, that is the level we will be using this time.
 	NEXTDUMP=$(($LASTDUMP+1))
 
