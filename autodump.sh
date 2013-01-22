@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# autodump.sh v1.2
+# autodump.sh v1.3
 ## Usage: 	autodump.sh [set #] [dump level]
 ##			autodump.sh --status
 #
@@ -13,7 +13,6 @@
 # TODO:
 #	- Support GNU flags for appropriate commands.
 #	- Autodetect binary paths.
-#	- Support mount points with multiple slashes.
 #
 # Further reading
 # http://forums.freebsd.org/showthread.php?t=4901
@@ -83,6 +82,7 @@ DATEBIN=/bin/date
 LSBIN=/bin/ls
 DDBIN=/bin/dd
 MVBIN=/bin/mv
+TRBIN=/usr/bin/tr
 
 ########################################################################################
 ########################################################################################
@@ -222,7 +222,7 @@ for CURDEVLABEL in $DEVICES
 	# Devices we're going to work on
 	CUR_DEV=`echo $CURDEVLABEL | $CUTBIN -d : -f 1`	
 	# File we're going to save to.
-	CUR_FILE=`echo $CURDEVLABEL | $CUTBIN -d : -f 2`
+	CUR_FILE=`echo $CURDEVLABEL | $CUTBIN -d : -f 2 | $TRBIN / _`
 
 	# Do the dump.
 	$DUMPBIN -$NEXTDUMP -h $NODUMPCARE -$DUMP_FLAGS - $CUR_DEV | $BZ2BIN > $DUMP_PATH/$CUR_FILE$DUMP_FILE_SUFFIX
