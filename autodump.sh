@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-# autodump.sh v1.3
+# autodump.sh v1.4
 ## Usage: 	autodump.sh [set #] [dump level]
 ##			autodump.sh --status
+##			autodump.sh --last <mount point>
 #
 ## Dump devices with a dump flag of 1 in /etc/fstab to specified directory along with their md5sum.
 ## Automatically manage dump levels (if 0 was done last, do 1 this time, and so on) and set rotations.
@@ -83,6 +84,7 @@ LSBIN=/bin/ls
 DDBIN=/bin/dd
 MVBIN=/bin/mv
 TRBIN=/usr/bin/tr
+DIRNAMEBIN=/usr/bin/dirname
 
 ########################################################################################
 ########################################################################################
@@ -90,22 +92,53 @@ TRBIN=/usr/bin/tr
 ########################################################################################
 ########################################################################################
 
+# Find the path to the most current set and level (i.e. the newest thing we got right now)
 get_current_set ()
 {
 	echo `$FINDBIN $BACKUP_DEST -type f | $XARGSBIN $STATBIN -f '%m:%N' | $SORTBIN -nr | $CUTBIN -d : -f2- | $HEADBIN -n1 | $SEDBIN 's/.*set\([0-9]\).*/\1/'`
 }
 
+# Find the path to the oldest level 0 dump (i.e. the oldest "complete" thing we got)
+get_oldest_zero ()
+{
+	THEPATH=`$FINDBIN $BACKUP_DEST -type f | $XARGSBIN $STATBIN -f '%m:%N' | $SORTBIN -nr | $CUTBIN -d : -f2- | $GREPBIN "0.dump.bz2" | $TAILBIN -n1`
+	echo `$DIRNAMEBIN $THEPATH`
+}
+
+# Figure out the last level we did
 get_last_lvl ()
 {
 	echo `$DUMPBIN -W | $GREPBIN -v "^Last" | $TAILBIN -n 1 | $SEDBIN 's/.*Level \([0-9]\).*/\1/'`
 }
 
 # We just want a status. Don't actually back anything up.
-if [ "$1" == "--status" ]
- then
- 	echo "`$DUMPBIN -W`"
- 	echo "Path to last dump:" $BACKUP_DEST/set`get_current_set`/`get_last_lvl`
-	exit 	
+if [[ "$1" =~ ^- ]]
+  then
+	if [ "$1" == "--status" ]
+	 then
+	 	echo "`$DUMPBIN -W`"
+	 	echo "Path to last dump:" $BACKUP_DEST/set`get_current_set`/`get_last_lvl`
+	 	echo "Path to oldest level 0:" `get_oldest_zero`
+	elif [ "$1" == "--last" ]
+	  then
+	  	if [ "$2" != "" ]
+		  then
+			THEOUT=`$DUMPBIN -W | $GREPBIN -v "^Last" | $CUTBIN -d '(' -f2- | $GREPBIN "$2)"`
+			if [ "$THEOUT" == "" ]
+			  then
+				echo "Couldn't find the last backup time for '$2'"
+			else
+				echo "$THEOUT" | $AWKBIN '{print $1 ": " $7 " " $8 " " $9 " " $10}' | $TRBIN -d ')'
+			fi
+		elif [ "$2" == "" ]
+		  then
+	  		echo "The --last option requires an argument (the name of the mount point)."
+	  	fi
+	else
+		echo "No such option: '$1'"
+	fi
+
+	exit
 fi
 
 # Figure out which devices we need to dump by looking for the 1 flag in /etc/fstab, then format them as
