@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# autodump.sh v1.4
+# autodump.sh v1.5
 ## Usage: 	autodump.sh [set #] [dump level]
 ##			autodump.sh --status
 ##			autodump.sh --last <mount point>
@@ -59,6 +59,9 @@ KERNEL_CONFIG_NAME=DAEMON
 # File name of where the current system info will be saved after a backup.
 LABEL_FILE=label.txt
 
+# If you want to stick the pid file somewhere else (defaults to /var/run)
+LOCKDIR=
+
 # Path to the binaries we need.
 DUMPBIN=/sbin/dump
 BZ2BIN=/usr/bin/bzip2
@@ -84,13 +87,56 @@ LSBIN=/bin/ls
 DDBIN=/bin/dd
 MVBIN=/bin/mv
 TRBIN=/usr/bin/tr
+RMBIN=/bin/rm
 DIRNAMEBIN=/usr/bin/dirname
+BASENAMEBIN=/usr/bin/basename
 
 ########################################################################################
 ########################################################################################
 ############################### DO NOT CHANGE BELOW HERE ###############################
 ########################################################################################
 ########################################################################################
+
+# Set a pid file (so we don't run dump twice)
+set_lock_file ()
+{
+	__USEDIR=${LOCKDIR:-/var/run}
+	__LOCKFILE=$__USEDIR/`$BASENAMEBIN $0`.pid
+
+	if [ -e $__LOCKFILE ]
+	  then
+		echo "Error: $0 already running (pid: `$CATBIN $__LOCKFILE`). Exiting."
+		exit
+	fi
+
+	if [ -d $USEDIR ]
+	  then
+		echo "$$" >> $__LOCKFILE
+	else
+		echo "Error: Can't make a lock file in '$USEDIR'! Exiting."
+		exit
+	fi
+}
+
+# Remove the pid file
+rm_lock_file ()
+{
+	__USEDIR=${LOCKDIR:-/var/run}
+	__LOCKFILE=$__USEDIR/`$BASENAMEBIN $0`.pid
+
+	if [ -e $__LOCKFILE ]
+	  then
+		$RMBIN $__LOCKFILE
+	fi
+}
+
+# Make sure to remove our pid file on exit
+__cleanup ()
+{
+	rm_lock_file
+	exit
+}
+trap __cleanup SIGINT SIGHUP SIGTERM EXIT
 
 # Find the path to the most current set and level (i.e. the newest thing we got right now)
 get_current_set ()
@@ -140,6 +186,9 @@ if [[ "$1" =~ ^- ]]
 
 	exit
 fi
+
+# Looks like we're going to start a backup, create the pid file.
+set_lock_file
 
 # Figure out which devices we need to dump by looking for the 1 flag in /etc/fstab, then format them as
 # dev:label, e.g. /dev/da0s1a:root. This will dump /dev/da0s1a to root<dump level>.dump.bz2.
