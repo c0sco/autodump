@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# autodump.sh v1.5
+# autodump.sh v1.6
 ## Usage: 	autodump.sh [set #] [dump level]
 ##			autodump.sh --status
 ##			autodump.sh --last <mount point>
@@ -61,6 +61,9 @@ LABEL_FILE=label.txt
 
 # If you want to stick the pid file somewhere else (defaults to /var/run)
 LOCKDIR=
+
+# Path to the file that dump writes last backup time to. Defaults to /etc/dumpdates
+DUMPDATES=
 
 # Path to the binaries we need.
 DUMPBIN=/sbin/dump
@@ -156,6 +159,30 @@ get_last_lvl ()
 {
 	echo `$DUMPBIN -W | $GREPBIN -v "^Last" | $TAILBIN -n 1 | $SEDBIN 's/.*Level \([0-9]\).*/\1/'`
 }
+
+# Check permissions on things we need to use
+check_perms ()
+{
+	if [ ! -r ${DUMPDATES:-/etc/dumpdates} ]
+	  then
+		echo "Can't read ${DUMPDATES:-/etc/dumpdates}! Exiting."
+		exit
+	fi
+
+	if [[ ! -r $BACKUP_DEST || ! -x $BACKUP_DEST ]]
+	  then
+		echo "Can't read or traverse $BACKUP_DEST! Exiting."
+		exit
+	fi
+
+	if [ ! -w ${DUMPDATES:-/etc/dumpdates} ]
+	  then
+		echo "Warning: Can't write to ${DUMPDATES:-/etc/dumpdates}! Detecting last backup time may not work properly." 1>&2
+	fi
+}
+
+# Make sure we can access everything we need before we go on.
+check_perms
 
 # We just want a status. Don't actually back anything up.
 if [[ "$1" =~ ^- ]]
