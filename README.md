@@ -1,4 +1,4 @@
-autodump v1.6
+autodump v1.7
 ========
 
 Automatic management of backup sets using dump.
