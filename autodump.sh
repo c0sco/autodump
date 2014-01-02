@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-# autodump.sh v1.6
+# autodump.sh v1.7
 ## Usage: 	autodump.sh [set #] [dump level]
 ##			autodump.sh --status
 ##			autodump.sh --last <mount point>
 #
-## Dump devices with a dump flag of 1 in /etc/fstab to specified directory along with their md5sum.
+## Dump devices with a dump flag of 1 in /etc/fstab to a specified directory.
 ## Automatically manage dump levels (if 0 was done last, do 1 this time, and so on) and set rotations.
 #
 ## Written and used specifically on FreeBSD, not guaranteed to work on other systems.
@@ -13,7 +13,6 @@
 # 
 # TODO:
 #	- Support GNU flags for appropriate commands.
-#	- Autodetect binary paths.
 #
 # Further reading
 # http://forums.freebsd.org/showthread.php?t=4901
@@ -33,9 +32,9 @@ TOTAL_SETS=4
 
 # When to do a level 0 dump.
 # Options are:
-#  "every" - Do a level 0 at the start of every new set.
 #  "everyother" - Do a level 0 every other set.
-#  set<number> - Only do a level 0 on this set number. Number must be between 0 and $TOTAL_SETS - 1.
+#  "set<number>" - Only do a level 0 on this set number. Number must be between 0 and $TOTAL_SETS - 1.
+#  default (anything else) - Do a level 0 at the start of every new set.
 DO_LVL0=set0
 
 # At what dump level do we care about the 'nodump' flag? If this is 0, then files and directories tagged with the 
@@ -53,6 +52,7 @@ MBR_DEV=/dev/da0
 MBR_FILE=mbr.img
 
 # Copy our kernel config as well. This allows you to set the nodump system flag on /usr/src.
+# Leave blank to disable this.
 KERNEL_CONFIG_DIR=/usr/src/sys/amd64/conf
 KERNEL_CONFIG_NAME=DAEMON
 
@@ -65,34 +65,45 @@ LOCKDIR=
 # Path to the file that dump writes last backup time to. Defaults to /etc/dumpdates
 DUMPDATES=
 
-# Path to the binaries we need.
-DUMPBIN=/sbin/dump
-BZ2BIN=/usr/bin/bzip2
-SSLBIN=/usr/bin/openssl
-CUTBIN=/usr/bin/cut
-TAILBIN=/usr/bin/tail
-HEADBIN=/usr/bin/head
-AWKBIN=/usr/bin/awk
-CPBIN=/bin/cp
-CATBIN=/bin/cat
-GREPBIN=/usr/bin/grep
-XARGSBIN=/usr/bin/xargs
-SEDBIN=/usr/bin/sed
-MKDIRBIN=/bin/mkdir
-FINDBIN=/usr/bin/find
-STATBIN=/usr/bin/stat
-SORTBIN=/usr/bin/sort
-HOSTBIN=/bin/hostname
-UNAMEBIN=/usr/bin/uname
-DFBIN=/bin/df
-DATEBIN=/bin/date
-LSBIN=/bin/ls
-DDBIN=/bin/dd
-MVBIN=/bin/mv
-TRBIN=/usr/bin/tr
-RMBIN=/bin/rm
-DIRNAMEBIN=/usr/bin/dirname
-BASENAMEBIN=/usr/bin/basename
+find_bin()
+{
+    found=`which $1`
+    if [[ "$found" == "" ]]; then
+        echo "Can't find $1 in your \$PATH. Exiting."
+        exit
+    fi
+
+    echo $found
+}
+
+# Check to make sure we have all the bins we need.
+DUMPBIN=`find_bin dump`
+BZ2BIN=`find_bin bzip2`
+SSLBIN=`find_bin openssl`
+CUTBIN=`find_bin cut`
+TAILBIN=`find_bin tail`
+HEADBIN=`find_bin head`
+AWKBIN=`find_bin awk`
+CPBIN=`find_bin cp`
+CATBIN=`find_bin cat`
+GREPBIN=`find_bin grep`
+XARGSBIN=`find_bin xargs`
+SEDBIN=`find_bin sed`
+MKDIRBIN=`find_bin mkdir`
+FINDBIN=`find_bin find`
+STATBIN=`find_bin stat`
+SORTBIN=`find_bin sort`
+HOSTBIN=`find_bin hostname`
+UNAMEBIN=`find_bin uname`
+DFBIN=`find_bin df`
+DATEBIN=`find_bin date`
+LSBIN=`find_bin ls`
+DDBIN=`find_bin dd`
+MVBIN=`find_bin mv`
+TRBIN=`find_bin tr`
+RMBIN=`find_bin rm`
+DIRNAMEBIN=`find_bin dirname`
+BASENAMEBIN=`find_bin basename`
 
 ########################################################################################
 ########################################################################################
@@ -297,7 +308,7 @@ if [ "$NEXTDUMP" == "0" ]
 	 	 	# We want 0s on a specific set, and we are not currently on that set
 	 		if [ "$DO_LVL0" != "set$SET" ]
 	 		 then
-	 		 	# So start at 0
+				# So start at 1
 	 			NEXTDUMP=1
 	 			# And mark level 0 for deletion just in case we switch to "everyother" at some point in the future
 	 			DELETE0=yes
@@ -310,10 +321,9 @@ fi
 # This just moves it to the trash folder, since we'd rather not rm backups until we absolutely have to.
 if [ "$DELETE0" == "yes" ]
  then
- 	DELPATH="$BACKUP_DEST/set$SET/0/*"
-	echo "Moving $DELPATH to the trash."
+	echo "Moving $BACKUP_DEST/set$SET/0/* to the trash."
 	$MKDIRBIN -p $BACKUP_DEST/trash
-	$MVBIN $DELPATH $BACKUP_DEST/trash
+	$MVBIN $BACKUP_DEST/set$SET/0/* $BACKUP_DEST/trash
 fi
 
 # Make sure the dirs exist.
@@ -346,8 +356,10 @@ if [ "$MBR_DEV" != "" ]
 fi
 
 # Copy the kernel config we specified up top and md5 it.
-$CPBIN $KERNEL_CONFIG_DIR/$KERNEL_CONFIG_NAME $DUMP_PATH
-$SSLBIN md5 $DUMP_PATH/$KERNEL_CONFIG_NAME > $DUMP_PATH/$KERNEL_CONFIG_NAME.md5sum
+if [[ -e "$KERNEL_CONFIG_DIR" && -e "$KERNEL_CONFIG_NAME" ]]; then
+	$CPBIN $KERNEL_CONFIG_DIR/$KERNEL_CONFIG_NAME $DUMP_PATH
+	$SSLBIN md5 $DUMP_PATH/$KERNEL_CONFIG_NAME > $DUMP_PATH/$KERNEL_CONFIG_NAME.md5sum
+fi
 
 # Gather system info to label our dumps
 DUMP_LISTING=`$LSBIN -loh $DUMP_PATH`
