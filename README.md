@@ -27,6 +27,12 @@ To get the last backup of a specific mount:
     autodump.sh --last <mount point>
 
 
+For ZFS zvols, use zdump.sh:
+
+    zdump.sh <zvol>
+
+See the settings at the top of zdump.sh for more info.
+
 Requirements
 ------------
 autodump will run on FreeBSD, Ubuntu, and CentOS out of the box (maybe others), with the follow additions:
